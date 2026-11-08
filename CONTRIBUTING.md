@@ -5,36 +5,23 @@ under GPL-3.0-only with the additional terms in [NOTICE](NOTICE). Bug reports,
 questions and reports of which STAR-CCM+ versions it works with are welcome as
 issues, in English or Spanish.
 
-## Before you send code
+## Sending code
 
-External contributions that constitute a copyrightable work are accepted only
-under a signed Fiduciary Licence Agreement ([FLA.md](FLA.md)). In short:
+Open a pull request. Nothing has to be signed and nobody has to be e-mailed.
 
-- You assign your exploitation rights in the contribution to the project owner,
-  exclusively and free of charge.
-- The owner undertakes to keep your contribution available under a free software
-  licence (today GPL-3.0-only) and to credit you under the name or pseudonym you
-  choose, in [AUTHORS](AUTHORS).
-- The owner may also license the project, your contribution included, under
-  other terms, including commercial ones.
-- You keep a full licence to use your own contribution for any purpose.
-- The agreement is governed by Spanish law; the Spanish text is binding and an
-  English translation is provided.
-
-How to sign: write to [PENDING: contact address]. You will receive the agreement
-with the owner's identification filled in. Return Annex A signed (electronic or
-scanned handwritten signature) from the e-mail address you state in it. If you are
-employed and the contribution relates to your job, include Annex B signed by your
-employer. One signature covers all your future pull requests.
-
-Pull requests that need the FLA are not merged without it.
-
-## What does not need the FLA
-
-Typo and formatting fixes, identifier renames, trivial changes of one or a few
-lines dictated by their function, and factual data without creative selection.
-These are not copyrightable works and are merged under the project licence.
-When in doubt, the maintainer will ask for the signature.
+- **Licence of your contribution.** What you contribute is licensed under the
+  same terms as the project: GPL-3.0-only plus the additional terms in NOTICE.
+  This is the usual "inbound = outbound" rule, and section D.6 of the GitHub
+  Terms of Service states it for every repository with a licence. You keep the
+  copyright in your contribution.
+- **Sign-off.** Every commit must carry a `Signed-off-by` line, which you add
+  with `git commit -s`. With it you certify the
+  [Developer Certificate of Origin 1.1](https://developercertificate.org/): that
+  you wrote the change or otherwise have the right to submit it under this
+  licence. The sign-off uses the name and e-mail of your git configuration; your
+  GitHub `noreply` address is fine.
+- **Credit.** Your commits keep your name. If you want to appear in
+  [AUTHORS](AUTHORS), add yourself in the same pull request.
 
 ## Rules for code
 
@@ -51,4 +38,5 @@ When in doubt, the maintainer will ask for the signature.
   blocked, and anything that saves, deletes, closes, runs the solver or touches
   3D-CAD needs `allow_risky`.
 - Say which STAR-CCM+ version you tested with.
+- New Python files start with the same four-line header as the others.
 - English in code and documentation.

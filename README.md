@@ -135,9 +135,6 @@ GPL ([`NOTICE`](NOTICE)): every copy and every modified version must keep the at
 *"Based on starccm-mcp by RHerAle, https://github.com/RHerAle/starccm-mcp"*, and a modified version must say
 that it is one and must not be presented as the original.
 
-A licence for use in a closed product can be arranged: contact the author through
-<https://github.com/RHerAle>.
-
 ## Forks and variants
 
 If you adapt it, publish your version as a GitHub fork and add it to [`VARIANTS.md`](VARIANTS.md) with a pull
@@ -145,4 +142,6 @@ request, so other users can find it.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the agreement in [`FLA.md`](FLA.md).
+Pull requests are welcome, with no agreement to sign: contributions are licensed under the same terms as
+the project, and each commit carries a `Signed-off-by` line (`git commit -s`). See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
