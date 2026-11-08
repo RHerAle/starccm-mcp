@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Reads STAR-CCM+ output logs: the iteration table, solver events and the tail of the text.
 
 Works on any text that contains the solver output: messages.log of the desktop client, the output of a

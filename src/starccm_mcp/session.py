@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Finds running STAR-CCM+ servers and runs Java macros on them through a batch client.
 
 A batch client started with `starccm+ -host localhost:<port> -batch Macro.java` connects to a server that is

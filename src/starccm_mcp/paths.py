@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Finds the STAR-CCM+ installation, its documentation, the per-user log and a cache folder."""
 from __future__ import annotations
 

@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 from starccm_mcp import logs, session
 from starccm_mcp.masking import mask
 

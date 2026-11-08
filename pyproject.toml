@@ -7,6 +7,9 @@ name = "starccm-mcp"
 version = "0.1.0"
 description = "Unofficial MCP server for Simcenter STAR-CCM+: read .sim files and logs without a licence, search the local docs, run macros on an open session."
 readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE", "AUTHORS"]
+authors = [{ name = "RHerAle" }]
 requires-python = ">=3.10"
 dependencies = ["mcp>=2.3,<3"]
 

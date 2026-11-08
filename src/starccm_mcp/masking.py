@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Removes licence data from any text before it leaves the server.
 
 STAR-CCM+ puts the Power-on-Demand key and the licence server on the command line of every server

@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Reads the object state stored in a STAR-CCM+ .sim file, without STAR-CCM+ and without a licence.
 
 The format is not documented by Siemens. What follows was observed on files saved by STAR-CCM+ 2502 (20.02):

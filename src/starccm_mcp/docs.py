@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Searches the documentation that ships with the user's own STAR-CCM+ installation.
 
 Nothing from the documentation is stored in this repository: the user guide and the Java API reference are

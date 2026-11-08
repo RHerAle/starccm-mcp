@@ -1,0 +1,34 @@
+starccm-mcp
+Copyright (C) 2026 RHerAle <https://github.com/RHerAle/starccm-mcp>
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 only (GPL-3.0-only), together with the additional terms
+below. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the LICENSE file for the full text.
+
+
+ADDITIONAL TERMS UNDER SECTION 7 OF THE GNU GPL VERSION 3
+
+These terms apply to every file of this program. Section 7 of the licence
+allows them; they are not further restrictions.
+
+1. Author attribution (section 7, paragraph b). Every copy and every modified
+   version must preserve the following attribution, both in its Appropriate
+   Legal Notices and in its README or equivalent documentation:
+
+       Based on starccm-mcp by RHerAle, https://github.com/RHerAle/starccm-mcp
+
+2. Marking of modified versions (section 7, paragraph c). A modified version
+   must be marked in reasonable ways as different from the original: its README
+   or equivalent documentation must state that it is a modified version of
+   starccm-mcp, with a link to https://github.com/RHerAle/starccm-mcp. Nobody may
+   present a modified version as the original or as endorsed by its author.
+
+
+TRADEMARKS
+
+Simcenter and STAR-CCM+ are trademarks of Siemens Digital Industries Software.
+This project is not affiliated with, endorsed by or supported by Siemens, and
+contains no Siemens code or documentation.

@@ -1,3 +1,7 @@
+# starccm-mcp
+# © 2026 RHerAle
+# SPDX-License-Identifier: GPL-3.0-only
+# Additional terms under section 7 of the GPL apply: see NOTICE.
 """Builds a tiny synthetic .sim with the same layout STAR-CCM+ 2502 writes, so tests need no real files."""
 import struct
 

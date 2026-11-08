@@ -124,8 +124,25 @@ The tests build a tiny synthetic `.sim` and a synthetic log, so they need neithe
 Servidor MCP no oficial para STAR-CCM+. Lee un `.sim` sin abrir STAR-CCM+ ni gastar licencia: contornos con
 sus valores, parámetros, modelos, criterios de parada e historial de los monitores. También lee el log, busca
 en el manual y el javadoc de tu propia instalación y lanza macros contra una sesión abierta, con
-protecciones para no tumbarla. Instalación y uso, arriba.
+protecciones para no tumbarla. Instalación y uso, arriba. Licencia GPL-3.0-only: si lo modificas o lo
+redistribuyes, tu versión debe seguir siendo GPL, citar este proyecto e indicar que es una versión
+modificada (detalles en `NOTICE`).
 
-## License
+## Licence
 
-To be decided before the first public release.
+© 2026 RHerAle. Code under GPL-3.0-only ([`LICENSE`](LICENSE)), with additional terms under section 7 of the
+GPL ([`NOTICE`](NOTICE)): every copy and every modified version must keep the attribution
+*"Based on starccm-mcp by RHerAle, https://github.com/RHerAle/starccm-mcp"*, and a modified version must say
+that it is one and must not be presented as the original.
+
+A licence for use in a closed product can be arranged: contact the author through
+<https://github.com/RHerAle>.
+
+## Forks and variants
+
+If you adapt it, publish your version as a GitHub fork and add it to [`VARIANTS.md`](VARIANTS.md) with a pull
+request, so other users can find it.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the agreement in [`FLA.md`](FLA.md).
