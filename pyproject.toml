@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,7 +11,11 @@ license = "GPL-3.0-only"
 license-files = ["LICENSE", "NOTICE", "AUTHORS"]
 authors = [{ name = "RHerAle" }]
 requires-python = ">=3.10"
-dependencies = ["mcp>=2.3,<3"]
+dependencies = ["mcp>=2.3,<3", "pydantic>=2"]
+
+[project.urls]
+Homepage = "https://github.com/RHerAle/starccm-mcp"
+Issues = "https://github.com/RHerAle/starccm-mcp/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

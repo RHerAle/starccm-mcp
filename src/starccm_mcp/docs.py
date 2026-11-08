@@ -57,6 +57,8 @@ def _manual() -> list[dict]:
 
 def search_manual(query: str, limit: int = 10, regex: bool = False, context: int = 220) -> dict:
     """All words must appear (case-insensitive); pages with words in the title rank first."""
+    if not query.strip():
+        raise ValueError("empty query")
     pages = _manual()
     if regex:
         pats = [re.compile(query, re.I)]

@@ -46,10 +46,7 @@ def _error(e: Exception) -> str:
     """Message for a failed tool call; raised as ToolError so the client sees is_error=True."""
     if isinstance(e, ToolError):
         return str(e)
-    hints = {
-        FileNotFoundError: "Check the path; use an absolute path.",
-        ValueError: "The file may not be a STAR-CCM+ .sim, or the value is not what the tool expected.",
-    }
+    hints = {FileNotFoundError: "Check the path; use an absolute path."}
     hint = next((h for t, h in hints.items() if isinstance(e, t)), "")
     msg = e.args[0] if isinstance(e, KeyError) and e.args else e
     return f"Error: {msg}" + (f" {hint}" if hint else "")
@@ -103,8 +100,9 @@ async def starccm_sim_boundaries(
 
     For each boundary: region, name, type (e.g. FreeStreamBoundary, WallBoundary, StagnationBoundary),
     selected options and the active values with method, definition, value and units (e.g. Mach number
-    '${Minlet}' = 0.8). Options are stored as indices; when the local Java API reference is available they
-    are translated to their labels (e.g. FlowDirectionOption -> 'Components').
+    '${Minlet}' = 0.8). Options are stored as indices (options_selected_index). When the local Java API
+    reference is available, `options` also gives a label, assuming the index follows the declaration order
+    of <Option>.Type (checked on FlowDirectionOption, FreeStreamOption and KwTurbSpecOption).
     """
     try:
         sim = await _sim(path)
@@ -346,10 +344,12 @@ async def starccm_run_macro(
     """Runs a Java macro on the STAR-CCM+ server at localhost:<port> through a batch client. The server, its
     GUI and the open simulation stay running; on timeout only the batch client is killed.
 
-    Before running, the macro is checked. Always refused: Java reflection (getMethods/invoke/setAccessible),
-    Class.forName, System.exit, starting processes. A reflective read-only macro once crashed a parallel
-    server when it reached unloaded 3D-CAD sketches. Refused unless allow_risky=True: 3D-CAD access,
-    saveState, deleting objects, clearing solution or mesh, closing the simulation, running the solver.
+    Before running, the source is checked against patterns. Refused: Java reflection, class loading,
+    System.exit/getenv, Runtime and processes, network and script engines (a reflective read-only macro
+    once crashed a parallel server when it reached unloaded 3D-CAD sketches). Refused unless
+    allow_risky=True: 3D-CAD access, saveState, deleting or clearing objects and data, closing the
+    simulation, running the solver, meshing, and writing files. These checks catch mistakes; they are not a
+    sandbox, and a macro that runs has the user's full rights.
 
     Good practice: call starccm_session_info first; verify every class and method with starccm_api_lookup;
     write simple macros like the ones STAR-CCM+ records; print results with sim.println(...), and prefix

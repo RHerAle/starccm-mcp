@@ -16,7 +16,9 @@ from .masking import mask
 
 _HEADER = re.compile(r"^\s*Iteration\s{2,}\S")
 _DIGITS = re.compile(r"[-+]?\d[\d.eE+-]*")
-_NUM = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$|^-?(nan|inf)", re.I)
+_NUM = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$")
+# Non-finite values as C runtimes print them when a run diverges: nan, -nan(ind), 1.#QNAN, inf, 1.#INF...
+_NONFINITE = re.compile(r"^[-+]?(nan(\(\w*\))?|inf(inity)?|1\.#(QNAN|SNAN|IND|INF)\d*)$", re.I)
 _EVENTS = [
     ("amg", re.compile(r"(?i)AMG solve(r)? (diverged|rejected)")),
     ("error", re.compile(r"^\s*Error\b|\bERROR\b|^\s*(Caused:\s*)?[\w.$]*(Exception|Error)\b:")),
@@ -34,26 +36,38 @@ def read_text(path: str | Path) -> str:
 
 
 def tail(text: str, lines: int = 200, grep: str | None = None) -> str:
-    rows = text.splitlines()
+    rows = mask(text).splitlines()  # mask first, so grep cannot probe for hidden values
     if grep:
         pat = re.compile(grep, re.I)
         rows = [r for r in rows if pat.search(r)]
-    return mask("\n".join(rows[-lines:]))
+    return "\n".join(rows[-lines:])
 
 
-def _row(tokens: list[str], ncols: int) -> list[float] | None:
-    if len(tokens) != ncols or not tokens[0].isdigit() or not all(_NUM.match(t) for t in tokens[1:]):
+def _value(t: str) -> float | str | None:
+    if _NUM.match(t):
+        return float(t)
+    if _NONFINITE.match(t):
+        return t  # kept as printed: JSON has no NaN, and the text says how the run failed
+    return None
+
+
+def _row(tokens: list[str], columns: list[str]) -> dict | None:
+    if len(tokens) != len(columns) or not tokens[0].isdigit():
         return None
-    try:
-        return [float(t) for t in tokens]
-    except ValueError:
+    values = [_value(t) for t in tokens[1:]]
+    if any(v is None for v in values):
         return None
+    return dict(zip(columns, [int(tokens[0])] + values))
 
 
 def summarize(text: str, last_rows: int = 10) -> dict:
-    """Iteration table (columns, first and last rows), grouped solver events and the last lines of text."""
+    """Iteration table (columns, first and last rows), grouped solver events and the last lines of text.
+
+    Each row is labelled with the header printed above it, so tables whose columns change stay correct.
+    """
+    text = mask(text)  # mask first: nothing below can return an unmasked fragment
     columns: list[str] = []
-    rows: list[list[float]] = []
+    rows: list[dict] = []
     tables = 0
     events: dict[str, dict] = {}
     other: list[str] = []
@@ -61,14 +75,11 @@ def summarize(text: str, last_rows: int = 10) -> dict:
     for line in text.splitlines():
         if _HEADER.match(line):
             tables += 1
-            names = re.split(r"\s{2,}", line.strip())
-            if names != columns:
-                columns = names
+            columns = re.split(r"\s{2,}", line.strip())
             continue
-        tokens = line.split()
-        r = _row(tokens, len(columns)) if columns else None
+        r = _row(line.split(), columns) if columns else None
         if r is not None:
-            iteration = int(r[0])
+            iteration = r[columns[0]]
             rows.append(r)
             continue
         s = line.strip()
@@ -79,17 +90,16 @@ def summarize(text: str, last_rows: int = 10) -> dict:
             if pat.search(s):
                 key = kind + ": " + _DIGITS.sub("#", s)[:120]
                 e = events.setdefault(key, {"kind": kind, "count": 0, "first_iteration": iteration,
-                                            "last_iteration": iteration, "example": mask(s[:200])})
+                                            "last_iteration": iteration, "example": s[:200]})
                 e["count"] += 1
                 e["last_iteration"] = iteration
                 break
-    fmt = lambda r: dict(zip(columns, [int(r[0])] + r[1:]))
     return {
         "columns": columns,
         "tables_printed": tables,
         "rows": len(rows),
-        "first_row": fmt(rows[0]) if rows else None,
-        "last_rows": [fmt(r) for r in rows[-last_rows:]],
+        "first_row": rows[0] if rows else None,
+        "last_rows": rows[-last_rows:],
         "events": sorted(events.values(), key=lambda e: -e["count"])[:40],
-        "last_lines": [mask(s[:200]) for s in other[-15:]],
+        "last_lines": [s[:200] for s in other[-15:]],
     }

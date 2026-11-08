@@ -11,20 +11,22 @@ FITNESS FOR A PARTICULAR PURPOSE. See the LICENSE file for the full text.
 
 ADDITIONAL TERMS UNDER SECTION 7 OF THE GNU GPL VERSION 3
 
-These terms apply to every file of this program. Section 7 of the licence
-allows them; they are not further restrictions.
+These terms apply to every file of this program and are made under section 7,
+paragraphs b) and c), of the licence.
 
-1. Author attribution (section 7, paragraph b). Every copy and every modified
-   version must preserve the following attribution, both in its Appropriate
-   Legal Notices and in its README or equivalent documentation:
+1. Author attribution (section 7, paragraph b). The copyright header of each
+   source file and this NOTICE file must be preserved in that material, and the
+   following attribution must be preserved in the Appropriate Legal Notices
+   displayed by any work that contains this program or a part of it:
 
        Based on starccm-mcp by RHerAle, https://github.com/RHerAle/starccm-mcp
 
-2. Marking of modified versions (section 7, paragraph c). A modified version
-   must be marked in reasonable ways as different from the original: its README
-   or equivalent documentation must state that it is a modified version of
-   starccm-mcp, with a link to https://github.com/RHerAle/starccm-mcp. Nobody may
-   present a modified version as the original or as endorsed by its author.
+2. Origin and modified versions (section 7, paragraph c). Nobody may
+   misrepresent the origin of this material. A modified version must be marked
+   in reasonable ways as different from the original version, for example by
+   stating in its README that it is a modified version of starccm-mcp and
+   linking to https://github.com/RHerAle/starccm-mcp, and must not be presented
+   as the original or as endorsed by its author.
 
 
 TRADEMARKS

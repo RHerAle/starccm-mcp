@@ -32,7 +32,7 @@ for you.
 | `starccm_log_summary` / `starccm_log_tail` | Iteration table, grouped solver events, filtered tail | no |
 | `starccm_docs_search` / `starccm_docs_page` | Full-text search of the local user guide | yes |
 | `starccm_api_lookup` | Classes, inheritance and exact method signatures from the local Java API reference | yes |
-| `starccm_session_list` | Running servers: port, clients and open simulation (Windows) | yes |
+| `starccm_session_list` | Running servers: port, clients and open simulation (Windows) | no |
 | `starccm_session_info` | Read-only snapshot of a running simulation | yes |
 | `starccm_run_macro` | Run a checked Java macro on a running simulation | yes |
 
@@ -72,21 +72,27 @@ The installation is found under `C:\Program Files\Siemens\*\STAR-CCM+*`. If your
 ## Safety
 
 - **`.sim` files are only opened for reading.**
-- **Licence data never leaves the server.** STAR-CCM+ puts the Power-on-Demand key and the licence server on
-  the command line of every server process, and logs can repeat them. Every log line, process line and
-  macro output passes through `masking.py` before it is returned.
-- **Macros are checked before they run.** The rules come from a real accident: a "read-only" macro that
-  called getters by reflection reached unloaded 3D-CAD sketches on a parallel server. The server died with
+- **Licence data is masked.** STAR-CCM+ puts the Power-on-Demand key and the licence server on the command
+  line of every server process, and logs can repeat them. Log text and macro output are masked by
+  `masking.py` as a whole, before any filtering or truncation; process command lines are never returned.
+  The masking works by patterns, so treat it as a strong safeguard, not a guarantee.
+- **The log tools read any text file you point them at.** They are meant for STAR-CCM+ logs; the path is
+  not restricted.
+- **Macros are checked before they run, but the check is not a sandbox.** It reads the source with
+  patterns to catch an assistant's mistakes before they reach your live session. A macro that runs has your
+  full rights and the server's: it can write files, open connections or check out licences. Never run a
+  macro you do not trust. The rules come from a real accident: a "read-only" macro that called getters by
+  reflection reached unloaded 3D-CAD sketches on a parallel server. The server died with
   `Non-recoverable ... isSerialCritical` and took the open simulation with it.
-  - Always refused: reflection (`getMethods`, `invoke`, `setAccessible`), `Class.forName`, `System.exit`,
-    and starting processes.
-  - Refused unless `allow_risky=True`: 3D-CAD access, `saveState`, deleting objects, clearing the solution
-    or mesh, closing the simulation, and running the solver, which spends licence time. The assistant
-    should only set it after you agree to that specific action.
+  - Refused: Java reflection, class loading, `System.exit` and `System.getenv`, `Runtime` and processes,
+    network classes and script engines.
+  - Refused unless `allow_risky=True`: 3D-CAD access, `saveState`, deleting or clearing objects and data,
+    closing the simulation, running the solver, meshing and writing files. The assistant should only set
+    it after you agree to that specific action.
   - `expected_sim` refuses to run if the window on that port shows a different simulation.
   - On a timeout, only the batch client is killed. The server and your GUI keep running.
-- This server never starts a STAR-CCM+ server, never checks out a licence and makes no network
-  connections other than to `localhost`.
+- **The MCP server itself** never starts a STAR-CCM+ server, never checks out a licence and makes no
+  network connections. What a macro does once it runs is up to the macro.
 
 ## How the `.sim` reader works
 
@@ -124,21 +130,21 @@ The tests build a tiny synthetic `.sim` and a synthetic log, so they need neithe
 Servidor MCP no oficial para STAR-CCM+. Lee un `.sim` sin abrir STAR-CCM+ ni gastar licencia: contornos con
 sus valores, parámetros, modelos, criterios de parada e historial de los monitores. También lee el log, busca
 en el manual y el javadoc de tu propia instalación y lanza macros contra una sesión abierta, con
-protecciones para no tumbarla. Instalación y uso, arriba. Licencia GPL-3.0-only: si lo modificas o lo
-redistribuyes, tu versión debe seguir siendo GPL, citar este proyecto e indicar que es una versión
-modificada (detalles en `NOTICE`).
+comprobaciones para evitar errores que la tumben (no son un sandbox). Instalación y uso, arriba. Licencia
+GPL-3.0-only: si lo redistribuyes, modificado o no, tu versión debe seguir siendo GPL, conservar la atribución
+a este proyecto en sus avisos legales y, si está modificada, indicarlo (detalles en `NOTICE`).
 
 ## Licence
 
 © 2026 RHerAle. Code under GPL-3.0-only ([`LICENSE`](LICENSE)), with additional terms under section 7 of the
-GPL ([`NOTICE`](NOTICE)): every copy and every modified version must keep the attribution
-*"Based on starccm-mcp by RHerAle, https://github.com/RHerAle/starccm-mcp"*, and a modified version must say
-that it is one and must not be presented as the original.
+GPL ([`NOTICE`](NOTICE)): every copy and every modified version must keep the author attribution in its
+legal notices, and a modified version must be marked as different from the original and must not be
+presented as the original.
 
 ## Forks and variants
 
-If you adapt it, publish your version as a GitHub fork and add it to [`VARIANTS.md`](VARIANTS.md) with a pull
-request, so other users can find it.
+If you publish a variant, please make it a GitHub fork and add it to [`VARIANTS.md`](VARIANTS.md) with a pull
+request, so other users can find it. This is a request, not a licence condition.
 
 ## Contributing
 

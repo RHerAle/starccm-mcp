@@ -8,9 +8,13 @@ A batch client started with `starccm+ -host localhost:<port> -batch Macro.java` 
 already running, runs the macro and exits; the server and its GUI keep running. On the machine where this was
 written the client did not ask for a licence (the server already holds one).
 
-Safety rules, learnt the hard way: a read-only macro that called getters by reflection reached 3D-CAD sketch
+Why the checks below exist: a read-only macro that called getters by reflection reached 3D-CAD sketch
 objects on a parallel server whose CAD model was not loaded, and the server died with
-"Non-recoverable ... isSerialCritical", taking the user's open simulation with it. Hence the checks below.
+"Non-recoverable ... isSerialCritical", taking the user's open simulation with it.
+
+What the checks are NOT: a sandbox. They read the source with regular expressions to catch an assistant's
+mistakes before they reach a live session. A determined author can get past them, and a macro that runs has
+the full rights of the user and of the STAR-CCM+ server. Never run macros from sources you do not trust.
 """
 from __future__ import annotations
 
@@ -28,33 +32,56 @@ from .masking import mask
 
 PORT_RANGE = range(47827, 48000)
 
-# Never allowed: these either crashed a server or reach outside STAR-CCM+.
+_D = r"\s*\.\s*"  # a dot with any spacing around it (comments are blanked before matching)
+
+# Refused even with allow_risky: they crashed a server or reach outside STAR-CCM+. STAR-CCM+'s own
+# Profile.getMethod(Class) is not reflection and stays allowed.
 BLOCKED = [
-    (r"\bjava\.lang\.reflect\b", "Java reflection (a reflective read-only macro crashed a parallel server)"),
-    (r"\.(getDeclaredMethods?|getMethods?|getDeclaredFields?|getFields?)\s*\(", "reflective member lookup"),
-    (r"\.invoke\s*\(", "reflective invoke"),
-    (r"\.setAccessible\s*\(", "reflective access"),
-    (r"\bClass\.forName\s*\(", "dynamic class loading"),
-    (r"\bSystem\.exit\s*\(", "System.exit"),
-    (r"\bRuntime\.getRuntime\s*\(\s*\)\s*\.\s*exec\b|\bProcessBuilder\b", "starting operating-system processes"),
+    (rf"\bjava{_D}lang{_D}reflect\b|\bMethodHandles?\b|\bVarHandle\b",
+     "Java reflection (a reflective read-only macro crashed a parallel server)"),
+    (rf"\bgetClass\s*\(\s*\){_D}get(Declared)?(Method|Field|Constructor)s?\b"
+     rf"|\bclass{_D}get(Declared)?(Method|Field|Constructor)s?\b|{_D}getDeclared(Method|Field|Constructor)s?\b",
+     "reflective member lookup"),
+    (rf"{_D}(invoke|invokeExact|invokeWithArguments|setAccessible)\s*\(", "reflective call"),
+    (rf"\bClass{_D}forName\b|\bClassLoader\b|{_D}loadClass\s*\(", "dynamic class loading"),
+    (rf"\bSystem{_D}(exit|getenv|getProperties)\b|\bimport\s+static\s+java{_D}lang{_D}System\b"
+     rf"|\bRuntime\b|\bProcess(Builder|Handle)\b",
+     "process control, environment variables or operating-system commands"),
+    (rf"\bjavax?{_D}net\b|\bURL\b|\bURI\b|\bSocket\w*|\bHttpClient\b", "network access"),
+    (rf"\bjavax{_D}script\b|\bScriptEngine\w*", "script engines"),
 ]
-# Allowed only with allow_risky=True, after the user has agreed.
+# Allowed only with allow_risky=True, after the user has agreed to that specific action.
 RISKY = [
-    (r"\bstar\.cadmodeler\b|\bCadModel\b|\bSketch\w*|getSketchPrimitiveManager",
+    (rf"\bstar{_D}cadmodeler\b|\bCadModel\b|\bSketch\w*|getSketchPrimitiveManager",
      "3D-CAD access: on a parallel server whose CAD model is not loaded this can kill the server"),
-    (r"\b(sim|simulation|getActiveSimulation\s*\(\s*\))\s*\.\s*(close|kill)\w*\s*\(", "closes the simulation"),
-    (r"\bsaveState\s*\(", "writes a .sim file (it can overwrite the user's file)"),
-    (r"(?i)\bclear(Solution|Mesh|Fields|History)\w*\s*\(|\bSolution\.Clear\b", "deletes solution or mesh data"),
-    (r"\.(deleteObjects|removeObjects?|remove|delete)\s*\(", "deletes objects from the simulation"),
-    (r"getSimulationIterator\s*\(\s*\)\s*\.\s*(run|step|runAutomation)\s*\(", "runs the solver (uses licence time)"),
+    (rf"\b(sim\w*|simulation\w*|getActiveSimulation\s*\(\s*\)|getSimulation\s*\(\s*\)){_D}(close|kill)\w*\s*\(",
+     "closes the simulation"),
+    (r"\bsaveState\b", "writes a .sim file (it can overwrite the user's file)"),
+    (rf"{_D}clear[A-Z]\w*\s*\(|::\s*clear[A-Z]\w*|\bSolution{_D}Clear\b|\binitializeSolution\b",
+     "clears or reinitialises solution or mesh data"),
+    (rf"{_D}(remove|delete)\w*\s*\(|::\s*(remove|delete)\w*",
+     "deletes objects (or files, or list items: check which)"),
+    (rf"{_D}(run|step|runAutomation)\s*\(|::\s*(run|step)\b", "runs the solver (uses licence time) or another task"),
+    (rf"\bgenerate(Volume|Surface)Mesh\b|{_D}execute\s*\(",
+     "regenerates the mesh or runs an operation (can take long and use a lot of memory)"),
+    (rf"\bjava{_D}nio{_D}file\b|\bFiles{_D}\w+|\bFile(Output|Writer)\w*|\bPrintWriter\b|{_D}renameTo\s*\(",
+     "writes, moves or deletes files on disk"),
 ]
 
-_STRIP = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*.*?\*/', re.S)
+# Java turns \\uXXXX escapes into characters before anything else, even inside comments, so the check does too.
+_UNICODE = re.compile(r"\\u+([0-9a-fA-F]{4})")
+_STRIP = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|//[^\n]*|/\*[\s\S]*?\*/')
+
+
+def _code(source: str) -> str:
+    """Source as the compiler sees it, with comments blanked and string literals emptied."""
+    s = _UNICODE.sub(lambda m: chr(int(m.group(1), 16)), source)
+    return _STRIP.sub(lambda m: '""' if m.group(0)[0] in "\"'" else " ", s)
 
 
 def check_macro(source: str, allow_risky: bool = False) -> list[str]:
-    """Problems that stop the macro from running (empty list means it may run)."""
-    code = _STRIP.sub(lambda m: '""' if m.group(0)[0] in "\"'" else " ", source)
+    """Problems that stop the macro from running (empty list means it may run). A seatbelt, not a sandbox."""
+    code = _code(source)
     problems = [f"blocked: {why}" for pat, why in BLOCKED if re.search(pat, code)]
     if not allow_risky:
         problems += [f"needs allow_risky=True: {why}" for pat, why in RISKY if re.search(pat, code)]
@@ -64,13 +91,14 @@ def check_macro(source: str, allow_risky: bool = False) -> list[str]:
 
 
 def class_name(source: str) -> str:
-    m = re.search(r"\bpublic\s+(?:final\s+)?class\s+(\w+)", source)
+    m = re.search(r"\bpublic\s+(?:final\s+)?class\s+(\w+)", _code(source))
     if not m:
         raise ValueError("No 'public class <Name>' found in the macro.")
     return m.group(1)
 
 
 _PS_SESSIONS = r"""
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $out = @()
 $seen = @{}
 foreach ($c in Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue) {
@@ -93,8 +121,9 @@ def list_sessions() -> list[dict]:
     if os.name != "nt":
         raise NotImplementedError("Listing sessions is only implemented on Windows. Pass the port explicitly.")
     script = _PS_SESSIONS % {"lo": PORT_RANGE.start, "hi": PORT_RANGE.stop}
-    res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                         capture_output=True, text=True, timeout=60)
+    # stdin=DEVNULL: the child must not read the MCP server's own stdin (the JSON-RPC stream).
+    res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], stdin=subprocess.DEVNULL,
+                         capture_output=True, encoding="utf-8", errors="replace", timeout=60)
     data = json.loads(res.stdout) if res.stdout.strip() else []
     for s in data:
         s["clients"] = s.get("clients") or []
@@ -118,11 +147,13 @@ async def run_batch(port: int, macro: Path, timeout_s: int) -> dict:
     exe = paths.batch_launcher()
     if os.name == "nt":
         # Python wraps this in cmd /c "...", so the inner quotes survive.
-        proc = await asyncio.create_subprocess_shell(f'"{exe}" -host localhost:{port} -batch "{macro}"',
-                                                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        proc = await asyncio.create_subprocess_shell(f'"{exe}" -host localhost:{int(port)} -batch "{macro}"',
+                                                     stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+                                                     stderr=asyncio.subprocess.STDOUT)
     else:
-        proc = await asyncio.create_subprocess_exec(str(exe), "-host", f"localhost:{port}", "-batch", str(macro),
-                                                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        proc = await asyncio.create_subprocess_exec(str(exe), "-host", f"localhost:{int(port)}", "-batch", str(macro),
+                                                    stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.STDOUT)
     timed_out = False
     try:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
