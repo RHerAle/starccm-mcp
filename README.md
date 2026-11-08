@@ -89,6 +89,9 @@ The installation is found under `C:\Program Files\Siemens\*\STAR-CCM+*`. If your
   - Refused unless `allow_risky=True`: 3D-CAD access, `saveState`, deleting or clearing objects and data,
     closing the simulation, running the solver, meshing and writing files. The assistant should only set
     it after you agree to that specific action.
+  - Known limits: the patterns look at names, not types, so they can be evaded (for example by storing the
+    simulation or a `Class` object in another variable first), file writes through STAR-CCM+'s own APIs are
+    only partly recognised, and Java has more ways to reach the outside than any list can name.
   - `expected_sim` refuses to run if the window on that port shows a different simulation.
   - On a timeout, only the batch client is killed. The server and your GUI keep running.
 - **The MCP server itself** never starts a STAR-CCM+ server, never checks out a licence and makes no

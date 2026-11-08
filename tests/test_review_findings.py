@@ -99,6 +99,55 @@ def test_blocked_even_with_allow_risky(body):
     assert any(p.startswith("blocked") for p in session.check_macro(macro(body), allow_risky=True))
 
 
+@pytest.mark.parametrize("body", [
+    '// x\r Class.forName("java.lang.String");',
+    '// x \\u000d Class.forName("java.lang.String");',
+    'Class.for\\u200bName("java.lang.String");',
+    'Cl\\u0000ass.forName("java.lang.String");',
+    'System.load("C:/x/evil.dll");',
+    'System.loadLibrary("evil");',
+    'Object v = new java.beans.Expression("abc", "length", new Object[0]).getValue();',
+    'java.util.function.Function<Class<?>, ?> f = Class::getMethods;',
+    'java.awt.Desktop.getDesktop();',
+    'java.rmi.Naming.lookup("x");',
+    'java.util.ServiceLoader.load(Runnable.class);',
+])
+def test_second_review_bypasses_are_blocked(body):
+    assert any(p.startswith("blocked") for p in session.check_macro(macro(body), allow_risky=True))
+
+
+def test_unicode_escape_follows_the_even_backslash_rule():
+    assert session._decode_unicode(r"\u0041") == "A"
+    assert session._decode_unicode(r"\\u0041") == r"\\u0041"
+    assert session._decode_unicode(r"\\\u0041") == "\\\\A"
+
+
+def test_check_is_linear_on_long_whitespace():
+    src = macro(" " * 100_000 + "\n" * 50_000 + "/**/" * 20_000 + "int x = 1;")
+    t = time.perf_counter()
+    session.check_macro(src)
+    assert time.perf_counter() - t < 2
+
+
+@pytest.mark.parametrize("body", [
+    'java.util.List<String> l = java.nio.file.Files.readAllLines(java.nio.file.Paths.get("a.txt"));',
+    'String s = "a\\u00f1b";',
+])
+def test_reading_files_and_accents_in_strings_are_allowed(body):
+    assert session.check_macro(macro(body)) == []
+
+
+def test_bom_is_ignored():
+    assert session.check_macro("\ufeff" + macro("int x = 1;")) == []
+
+
+@pytest.mark.parametrize("body", ['new java.io.RandomAccessFile("a", "rw");',
+                                  'plot.export(new java.io.File("a.csv"));',
+                                  'scene.printAndWait(new java.io.File("a.png"), 1, 800, 600);'])
+def test_more_file_writes_are_risky(body):
+    assert any(p.startswith("needs allow_risky") for p in session.check_macro(macro(body)))
+
+
 def test_static_import_of_system_is_blocked():
     src = macro("exit(0);", imports="import static java.lang.System.*;")
     assert any(p.startswith("blocked") for p in session.check_macro(src, allow_risky=True))

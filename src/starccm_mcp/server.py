@@ -367,7 +367,7 @@ async def starccm_run_macro(
                 raise ToolError(f"Error: the public class must be named like the file ({mp.stem}).")
         else:
             src = source or ""
-        problems = session.check_macro(src, allow_risky)
+        problems = await asyncio.to_thread(session.check_macro, src, allow_risky)
         if problems:
             raise ToolError(_json({"refused": True, "problems": problems}))
         problem = await _check_port(port, expected_sim)

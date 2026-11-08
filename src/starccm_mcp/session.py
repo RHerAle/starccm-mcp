@@ -32,51 +32,64 @@ from .masking import mask
 
 PORT_RANGE = range(47827, 48000)
 
-_D = r"\s*\.\s*"  # a dot with any spacing around it (comments are blanked before matching)
+_D = r" ?\. ?"  # a dot, maybe with a space around it (comments are blanked and whitespace collapsed first)
 
 # Refused even with allow_risky: they crashed a server or reach outside STAR-CCM+. STAR-CCM+'s own
 # Profile.getMethod(Class) is not reflection and stays allowed.
 BLOCKED = [
     (rf"\bjava{_D}lang{_D}reflect\b|\bMethodHandles?\b|\bVarHandle\b",
      "Java reflection (a reflective read-only macro crashed a parallel server)"),
-    (rf"\bgetClass\s*\(\s*\){_D}get(Declared)?(Method|Field|Constructor)s?\b"
-     rf"|\bclass{_D}get(Declared)?(Method|Field|Constructor)s?\b|{_D}getDeclared(Method|Field|Constructor)s?\b",
-     "reflective member lookup"),
-    (rf"{_D}(invoke|invokeExact|invokeWithArguments|setAccessible)\s*\(", "reflective call"),
-    (rf"\bClass{_D}forName\b|\bClassLoader\b|{_D}loadClass\s*\(", "dynamic class loading"),
-    (rf"\bSystem{_D}(exit|getenv|getProperties)\b|\bimport\s+static\s+java{_D}lang{_D}System\b"
-     rf"|\bRuntime\b|\bProcess(Builder|Handle)\b",
+    (rf"\bgetClass ?\( ?\){_D}get(Declared)?(Method|Field|Constructor)s?\b"
+     rf"|\bclass{_D}get(Declared)?(Method|Field|Constructor)s?\b|{_D}getDeclared(Method|Field|Constructor)s?\b"
+     rf"|:: ?get(Declared)?(Method|Field|Constructor)s?\b|\bjava{_D}beans\b",
+     "reflective member lookup or invocation by name"),
+    (rf"{_D}(invoke|invokeExact|invokeWithArguments|setAccessible) ?\(", "reflective call"),
+    (rf"\bClass{_D}forName\b|\bClassLoader\b|{_D}loadClass ?\(|\bServiceLoader\b|\bSystem{_D}load(Library)?\b",
+     "dynamic class or native library loading"),
+    (rf"\bSystem{_D}(exit|getenv|getProperties)\b|\bimport static java{_D}lang{_D}System\b"
+     rf"|\bRuntime\b|\bProcess(Builder|Handle)\b|\bDesktop\b",
      "process control, environment variables or operating-system commands"),
-    (rf"\bjavax?{_D}net\b|\bURL\b|\bURI\b|\bSocket\w*|\bHttpClient\b", "network access"),
+    (rf"\bjavax?{_D}net\b|\bURL\b|\bURI\b|\bSocket\w*|\bHttpClient\b|\bjava{_D}rmi\b|\bjavax{_D}(naming|management)\b",
+     "network or remote access"),
     (rf"\bjavax{_D}script\b|\bScriptEngine\w*", "script engines"),
+    (r"[^\x20-\x7e]", "non-ASCII or control characters outside strings and comments (they can hide identifiers)"),
 ]
 # Allowed only with allow_risky=True, after the user has agreed to that specific action.
 RISKY = [
     (rf"\bstar{_D}cadmodeler\b|\bCadModel\b|\bSketch\w*|getSketchPrimitiveManager",
      "3D-CAD access: on a parallel server whose CAD model is not loaded this can kill the server"),
-    (rf"\b(sim\w*|simulation\w*|getActiveSimulation\s*\(\s*\)|getSimulation\s*\(\s*\)){_D}(close|kill)\w*\s*\(",
+    (rf"\b(sim\w*|simulation\w*|getActiveSimulation ?\( ?\)|getSimulation ?\( ?\)){_D}(close|kill)\w* ?\(",
      "closes the simulation"),
     (r"\bsaveState\b", "writes a .sim file (it can overwrite the user's file)"),
-    (rf"{_D}clear[A-Z]\w*\s*\(|::\s*clear[A-Z]\w*|\bSolution{_D}Clear\b|\binitializeSolution\b",
+    (rf"{_D}clear[A-Z]\w* ?\(|:: ?clear[A-Z]\w*|\bSolution{_D}Clear\b|\binitializeSolution\b",
      "clears or reinitialises solution or mesh data"),
-    (rf"{_D}(remove|delete)\w*\s*\(|::\s*(remove|delete)\w*",
+    (rf"{_D}(remove|delete)\w* ?\(|:: ?(remove|delete)\w*",
      "deletes objects (or files, or list items: check which)"),
-    (rf"{_D}(run|step|runAutomation)\s*\(|::\s*(run|step)\b", "runs the solver (uses licence time) or another task"),
-    (rf"\bgenerate(Volume|Surface)Mesh\b|{_D}execute\s*\(",
+    (rf"{_D}(run|step|runAutomation) ?\(|:: ?(run|step)\b", "runs the solver (uses licence time) or another task"),
+    (rf"\bgenerate(Volume|Surface)Mesh\b|{_D}execute ?\(",
      "regenerates the mesh or runs an operation (can take long and use a lot of memory)"),
-    (rf"\bjava{_D}nio{_D}file\b|\bFiles{_D}\w+|\bFile(Output|Writer)\w*|\bPrintWriter\b|{_D}renameTo\s*\(",
+    (rf"\bFiles{_D}(write\w*|delete\w*|move|copy|create\w*|newBufferedWriter|newOutputStream|set\w+)\b"
+     rf"|\bFile(Output|Writer)\w*|\bPrintWriter\b|\bRandomAccessFile\b|{_D}renameTo ?\(",
      "writes, moves or deletes files on disk"),
+    (rf"{_D}(export\w*|printAndWait|saveToTemplate) ?\(", "writes files through STAR-CCM+ (exports, images, templates)"),
 ]
 
-# Java turns \\uXXXX escapes into characters before anything else, even inside comments, so the check does too.
-_UNICODE = re.compile(r"\\u+([0-9a-fA-F]{4})")
-_STRIP = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|//[^\n]*|/\*[\s\S]*?\*/')
+# Java turns \uXXXX escapes into characters before anything else, even inside comments, so the check does too.
+# A backslash only starts an escape when it is preceded by an even number of backslashes.
+_UNICODE = re.compile(r"(?<!\\)((?:\\\\)*)\\u+([0-9a-fA-F]{4})")
+# Line comments end at LF or CR, as in Java.
+_STRIP = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\\n\r])*"|\'(?:\\.|[^\'\\\n\r])*\'|//[^\n\r]*|/\*[\s\S]*?\*/')
+
+
+def _decode_unicode(source: str) -> str:
+    return _UNICODE.sub(lambda m: m.group(1) + chr(int(m.group(2), 16)), source)
 
 
 def _code(source: str) -> str:
-    """Source as the compiler sees it, with comments blanked and string literals emptied."""
-    s = _UNICODE.sub(lambda m: chr(int(m.group(1), 16)), source)
-    return _STRIP.sub(lambda m: '""' if m.group(0)[0] in "\"'" else " ", s)
+    """Source as the compiler sees it: escapes decoded, comments blanked, strings emptied, whitespace collapsed
+    (so the patterns stay linear)."""
+    s = _STRIP.sub(lambda m: '""' if m.group(0)[0] in "\"'" else " ", _decode_unicode(source.lstrip("﻿")))
+    return re.sub(r"[ \t\n\r\f\v]+", " ", s)
 
 
 def check_macro(source: str, allow_risky: bool = False) -> list[str]:
