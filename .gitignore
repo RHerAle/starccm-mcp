@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# never commit simulation files, logs or anything from a STAR-CCM+ install
+*.sim
+*.sim~
+*.log
+*.java.bak
