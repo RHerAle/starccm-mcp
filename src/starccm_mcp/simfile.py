@@ -9,8 +9,12 @@ The format is not documented by Siemens. What follows was observed on files save
 - The first line is a dict with 'ClassName': 'STAR' and 'StatePosition': N.
 - From byte N to the end of the file, each line is one object, written as a Python-like dict.
   Object number r sits on line r + 2 of that block.
-- Integers with an L suffix are usually references to other objects, but not always
-  ('FaceCount', 'dataKey' and similar are plain numbers).
+- Integers with an L suffix are Java longs: references to other objects, and also some counts and offsets
+  ('CellCount', 'dataKey', 'ObjectId'). Integers without the suffix ('NumberSamples', 'MaxCycles', 'Selected')
+  are values, even when they equal a record number. Checked on files from 2021.1.1, 2210, 2502 and 2510.
+  The parser keeps the suffix as the Ref type, and only Ref values are followed.
+- The boundary type sits under StageableConditionType.BoundaryType in 2310, 2502 and 2510, and directly on the
+  Boundary record ('BoundaryType') in 2020.2.1, 2021.1.1 and 2210.
 - Arrays such as 'MasterArray<Float8>' (monitor histories) keep their data elsewhere in the file:
   'dataKey' is an absolute byte offset to a one-line header followed by little-endian doubles.
 
@@ -26,7 +30,8 @@ import threading
 from collections import OrderedDict
 from typing import Any
 
-_LNUM = re.compile(r"(?<![\w.])(-?\d+)L\b")
+# A quoted string (left as it is) or, outside quotes, an integer with an L suffix.
+_TOKEN = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|(?<![\w.])(-?\d+)L\b""")
 _LITERALS = [(re.compile(r"(?<=[\s\[:,])" + w + r"(?=[\s,\]}])"), py)
              for w, py in (("true", "True"), ("false", "False"), ("null", "None"))]
 _NOISE = {"Parent", "NameManager", "Manager", "ClientServerObjectGroupManager", "ObjectId", "ChildManager", "Index",
@@ -49,15 +54,35 @@ def short(cls: Any) -> str:
     return str(cls).rsplit(".", 1)[-1]
 
 
+class Ref(int):
+    """An integer written with an L suffix. Only these can be references to other records."""
+    __slots__ = ()
+
+
+def _long_as_tuple(m: re.Match) -> str:
+    return f"({m.group(1)},)" if m.group(1) else m.group(0)
+
+
+def _refs(v: Any) -> Any:
+    """Turns the (n,) tuples that stand for nL back into Ref(n)."""
+    if isinstance(v, tuple):
+        return Ref(v[0]) if len(v) == 1 and type(v[0]) is int else v
+    if isinstance(v, list):
+        return [_refs(x) for x in v]
+    if isinstance(v, dict):
+        return {_refs(k): _refs(x) for k, x in v.items()}
+    return v
+
+
 def _parse(line: bytes) -> dict | None:
     s = line.decode("utf-8", "replace").strip()
     if not s.startswith("{"):
         return None
-    s2 = _LNUM.sub(r"\1", s)
+    s2 = _TOKEN.sub(_long_as_tuple, s)
     for pattern, py in _LITERALS:
         s2 = pattern.sub(py, s2)
     try:
-        d = ast.literal_eval(s2)
+        d = _refs(ast.literal_eval(s2))
     except (ValueError, SyntaxError, MemoryError, RecursionError):
         return {"_raw": s[:2000]}
     return d if isinstance(d, dict) else None
@@ -81,12 +106,17 @@ class SimFile:
                 self.by_class.setdefault(short(d["ClassName"]), []).append(i - 2)
 
     # ---- basic access -------------------------------------------------------------------------
+    def _exists(self, r: Any) -> bool:
+        """True if r is a positive record number that points at a parsed record (0 means 'none')."""
+        return isinstance(r, int) and not isinstance(r, bool) and 0 < r < len(self.records) - 2 and bool(self.records[r + 2])
+
     def is_ref(self, v: Any) -> bool:
-        """True if v can be a reference: a positive int that points at a parsed record (0 means 'none')."""
-        return isinstance(v, int) and not isinstance(v, bool) and 0 < v < len(self.records) - 2 and bool(self.records[v + 2])
+        """True if the field value v is a reference: written with an L suffix and pointing at a parsed record."""
+        return isinstance(v, Ref) and self._exists(v)
 
     def rec(self, r: Any) -> dict:
-        return self.records[r + 2] if self.is_ref(r) else {}
+        """Record r, given as a record number or a reference; {} if there is none."""
+        return self.records[r + 2] if self._exists(r) else {}
 
     def raw(self, r: int) -> dict:
         """Record by number without the reference check (the version records sit at -2 and 0)."""
@@ -269,6 +299,7 @@ def boundaries(sim: SimFile, region: str | None = None, name: str | None = None)
         if region and region.lower() != reg.lower() or name and name.lower() != str(d.get("PresentationName")).lower():
             continue
         stage = sim.rec(d.get("StageableConditionType"))
+        btype = d.get("BoundaryType") or stage.get("BoundaryType")  # on the Boundary in 2020.2.1, 2021.1.1, 2210
         options, values = {}, {}
         for mgr in sim.keys_of(d.get("Objects")):
             for k in sim.keys_of(mgr):
@@ -280,7 +311,7 @@ def boundaries(sim: SimFile, region: str | None = None, name: str | None = None)
                     q = sim.quantity(k)
                     if q is not None:
                         values[key] = q
-        out.append({"region": reg, "name": d.get("PresentationName"), "type": sim.cls(stage.get("BoundaryType")),
+        out.append({"region": reg, "name": d.get("PresentationName"), "type": sim.cls(btype),
                     "record": r, "options_selected_index": options, "values": values})
     return out
 

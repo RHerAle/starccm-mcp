@@ -45,16 +45,41 @@ STATE = [
     "{'ClassName': 'star.common.ScalarPhysicalQuantity', 'Value': 1000.0, 'Units': 0L}",  # 26
     "{'ClassName': 'star.common.FvRepresentation', 'PresentationName': 'Volume Mesh', 'CellCount': 1234L, "
     "'InteriorFaceCount': 5L, 'VertexCount': 6L}",  # 27
+    # Integers written without L are plain values, even when they equal a record number (23 is the StarLog,
+    # 25 an IntegerValue, 21 the CD report, 2 the SimulationIterator, 3 the Region).
+    "{'ClassName': 'star.common.MonitorIterationStoppingCriterion', 'PresentationName': 'CD Criterion', "
+    "'IsUsed': true, 'IsSatisfied': false, 'CriterionType': 29L}",  # 28
+    "{'ClassName': 'star.common.MonitorIterationStoppingCriterionAsymptoticType', 'MaxWidth': 30L, "
+    "'Normalized': true, 'NumberSamples': 23, 'StartIteration': 0, 'SteppingCriterionSatisfiedIteration': 3}",  # 29
+    "{'ClassName': 'star.common.ScalarPhysicalQuantity', 'Value': 0.0001, 'Units': 0L}",  # 30
+    "{'ClassName': 'star.common.AMGLinearSolver', 'Agglomeration': 25, 'CycleOption': 32L, 'GroupSize': 2, "
+    "'MaxCycles': 23}",  # 31
+    "{'ClassName': 'star.common.AMGCycleOption', 'Selected': 0}",  # 32
+    "{'ClassName': 'star.common.GridSequencingInit', 'IsEnabled': false, 'MaxGSIterations': 21, "
+    "'MaxGSLevels': 10, 'Parent': 31L}",  # 33
+    "{'ClassName': 'star.coupledflow.AutomaticCourantNumberControl', 'NCyclesHistory': [2, 2, 2]}",  # 34
+]
+
+# Layout of files whose StarVersion is 2210 (also seen in 2021.1.1 and 2020.2.1): the Boundary record holds
+# BoundaryType itself and has no StageableConditionType.
+STATE_2210 = [
+    "{'ClassName': 'StarVersion', 'PresentationVersion': '2210', 'ReleaseNumber': '17.06.007'}",
+    "",
+    "{'ClassName': 'StarVersion', 'PresentationVersion': '2210', 'ReleaseNumber': '17.06.007'}",
+    *STATE[3:6],
+    "{'AllowPerPartValues': false, 'BoundaryType': 6L, 'ClassName': 'star.common.Boundary', 'Index': 18, "
+    "'Objects': 7L, 'PresentationName': 'inlet', 'Region': 3L, 'Topology': 0}",  # 4
+    *STATE[7:],
 ]
 
 
-def build_sim(path):
+def build_sim(path, state=STATE):
     head_len = len(b"{'Binary': '', 'ClassName': 'STAR', 'StatePosition': 0000000000L, 'Version': 3}\n")
     arr = lambda vals: (b"{'ClassName': 'Array', 'Type': 'Float8', 'nElements': %dL, 'sizeof<T>': 8}\n" % len(vals)
                         + struct.pack(f"<{len(vals)}d", *vals))
     ax, ay = arr([1.0, 2.0, 3.0]), arr([0.5, 0.25, 0.125])
     xkey, ykey = head_len, head_len + len(ax)
-    state = "\n".join(STATE).replace("XKEY", str(xkey)).replace("YKEY", str(ykey)).encode()
+    state = "\n".join(state).replace("XKEY", str(xkey)).replace("YKEY", str(ykey)).encode()
     pos = head_len + len(ax) + len(ay)
     head = b"{'Binary': '', 'ClassName': 'STAR', 'StatePosition': %010dL, 'Version': 3}\n" % pos
     assert len(head) == head_len
@@ -65,3 +90,8 @@ def build_sim(path):
 @pytest.fixture
 def sim_path(tmp_path):
     return build_sim(tmp_path / "demo.sim")
+
+
+@pytest.fixture
+def sim_2210_path(tmp_path):
+    return build_sim(tmp_path / "demo-2210.sim", STATE_2210)
