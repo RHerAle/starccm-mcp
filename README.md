@@ -1,5 +1,7 @@
 # starccm-mcp
 
+<!-- mcp-name: io.github.RHerAle/starccm-mcp -->
+
 An unofficial [MCP](https://modelcontextprotocol.io) server for **Simcenter STAR-CCM+**. It lets an AI assistant
 such as Claude Code, Claude Desktop or any other MCP client:
 
@@ -104,16 +106,22 @@ Siemens does not document the format. This is what was observed on files saved b
 - The first line is a dict with `'StatePosition': N`.
 - From byte N to the end of the file, each line is one object written as a Python-like dict, and object
   `r` sits on line `r + 2`.
-- Integers with an `L` suffix are usually references to other objects.
+- Integers with an `L` suffix are Java longs: references to other objects, and also some counts and offsets
+  (`CellCount`, `dataKey`, `ObjectId`). Integers without the suffix (`NumberSamples`, `MaxCycles`, `Selected`)
+  are plain values, even when they equal a record number, and the reader never follows them. Checked on files
+  from 2021.1.1, 2210, 2502 and 2510.
+- The boundary type sits under `StageableConditionType.BoundaryType` in files from 2310, 2502 and 2510, and
+  directly on the Boundary record in files from 2020.2.1, 2021.1.1 and 2210. The reader handles both layouts.
 - Monitor histories are `MasterArray<Float8>` records. Their `dataKey` is the absolute byte offset of a
   one-line header followed by little-endian doubles.
 
-Only the object state is parsed, never the mesh or the solution arrays, so a 250 MB `.sim` opens in about
-0.3 s.
+Only the object state is parsed, never the mesh or the solution arrays. On the author's machine, a 253 MB
+`.sim` with 1.6 MB of object state opens in about 0.6 s, and a 14 MB one with 2.5 MB of state in about 1.4 s.
 
 ## Status and limitations
 
-- Tested with STAR-CCM+ **2502 (20.02.008)** on Windows 11. Other versions are untested; reports are welcome.
+- Tested with STAR-CCM+ **2502 (20.02.008)** on Windows 11. The `.sim` reader has also been run on files saved
+  with 2021.1.1, 2210 and 2510. Other versions are untested; reports are welcome.
 - Solution fields stored in the `.sim`, such as density on a boundary, are not exposed yet.
 - An expression's stored value is the last one STAR-CCM+ evaluated; the definition is always current.
 - The session list reads the open simulation from the GUI window title. Without a GUI, use

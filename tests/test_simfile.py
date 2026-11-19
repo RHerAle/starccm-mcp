@@ -60,6 +60,36 @@ def test_counts_are_not_references(sim_path):
     assert sim.settings(27, 1)["CellCount"] == 1234
 
 
+def test_plain_ints_are_not_references(sim_path):
+    """Integers written without L stay numbers even when they equal a record number; L fields still resolve."""
+    sim = simfile.open_sim(str(sim_path))
+    asym = sim.settings(29, 1)
+    assert asym["NumberSamples"] == 23  # record 23 is the StarLog
+    assert asym["SteppingCriterionSatisfiedIteration"] == 3
+    assert asym["MaxWidth"] == {"value": 0.0001, "units": ""}
+    amg = sim.settings(31, 1)
+    assert (amg["MaxCycles"], amg["Agglomeration"], amg["GroupSize"]) == (23, 25, 2)
+    assert amg["CycleOption"] == {"option": "AMGCycleOption", "selected_index": 0}
+    gs = sim.settings(33, 1)
+    assert (gs["MaxGSIterations"], gs["MaxGSLevels"]) == (21, 10)
+    assert sim.settings(34, 1)["NCyclesHistory"] == [2, 2, 2]
+
+
+def test_overview_criterion_keeps_plain_ints(sim_path):
+    o = simfile.overview(simfile.open_sim(str(sim_path)))
+    (crit,) = [c for c in o["stopping_criteria"] if c["name"] == "CD Criterion"]
+    asym = crit["settings"]["CriterionType"]
+    assert asym["object"] == "[MonitorIterationStoppingCriterionAsymptoticType #29]"
+    assert (asym["NumberSamples"], asym["SteppingCriterionSatisfiedIteration"]) == (23, 3)
+
+
+def test_boundary_type_on_the_boundary_record(sim_2210_path):
+    """Layout seen in 2020.2.1, 2021.1.1 and 2210: BoundaryType on the Boundary, no StageableConditionType."""
+    (b,) = simfile.boundaries(simfile.open_sim(str(sim_2210_path)))
+    assert (b["region"], b["name"], b["type"]) == ("fluid", "inlet", "FreeStreamBoundary")
+    assert b["values"]["MachNumberProfile"]["value"] == 0.7
+
+
 def test_not_a_sim(tmp_path):
     p = tmp_path / "x.sim"
     p.write_text("hello")
